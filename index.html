@@ -32,13 +32,13 @@
        <button type="button" onclick="init()">Comenzar</button> 
        <div id="video" style="width: 220px; height: 220px; margin-top: 10px;"></div>  <! -- ESPACIO PARA CAPTURA DE VIDEO 320px320 -->
        <div style="display: flex;">
-       <button type="button" style="width: 200px; height: 50px; margin-right: 10px; margin-bottom: 15px;" onclick="hacer_foto('foto1')"> DISCO DURO </button>
-       <button type="button" style="width: 200px; height: 50px; margin-right: 10px; margin-bottom: 15px;" onclick="hacer_foto('foto2')"> MEMORIA RAM </button>
-       <button type="button" style="width: 200px; height: 50px; margin-right: 10px; margin-bottom: 15px;" onclick="hacer_foto('foto3')"> MICROPROCESADOR </button>
-       <button type="button"  style="width: 200px; height: 50px; margin-right: 10px; margin-bottom: 15px;"onclick="hacer_foto('foto4')"> TARJETA GRÁFICA </button>
-       <button type="button"  style="width: 200px; height: 50px; margin-right: 10px; margin-bottom: 15px;"onclick="hacer_foto('foto5')"> DISIPADOR/VENTILADOR </button>
-       <button type="button"  style="width: 200px; height: 50px; margin-right: 10px; margin-bottom: 15px;"onclick="hacer_foto('foto6')"> FUENTE DE ALIMENTACIÓN </button>
-       <button type="button" style="width: 200px; height: 50px; margin-right: 10px; margin-bottom: 15px;"onclick="hacer_foto('foto7')"> PILA </button>
+       <button id="boton1" type="button" style="width: 200px; height: 50px; margin-right: 10px; margin-bottom: 15px;" onclick="hacer_foto('foto1')"> DISCO DURO </button>
+       <button id="boton2" type="button" style="width: 200px; height: 50px; margin-right: 10px; margin-bottom: 15px;" onclick="hacer_foto('foto2')"> MEMORIA RAM </button>
+       <button id="boton3" type="button" style="width: 200px; height: 50px; margin-right: 10px; margin-bottom: 15px;" onclick="hacer_foto('foto3')"> MICROPROCESADOR </button>
+       <button id="boton4" type="button"  style="width: 200px; height: 50px; margin-right: 10px; margin-bottom: 15px;"onclick="hacer_foto('foto4')"> TARJETA GRÁFICA </button>
+       <button id="boton5" type="button"  style="width: 200px; height: 50px; margin-right: 10px; margin-bottom: 15px;"onclick="hacer_foto('foto5')"> DISIPADOR/VENTILADOR </button>
+       <button id="boton6" type="button"  style="width: 200px; height: 50px; margin-right: 10px; margin-bottom: 15px;"onclick="hacer_foto('foto6')"> FUENTE DE ALIMENTACIÓN </button>
+       <button id="boton7" type="button" style="width: 200px; height: 50px; margin-right: 10px; margin-bottom: 15px;"onclick="hacer_foto('foto7')"> PILA </button>
        
       </div>
       
@@ -193,7 +193,7 @@
               
       <script type="text/javascript">
        // the link to your model provided by Teachable Machine export panel
-      const URL = "https://teachablemachine.withgoogle.com/models/rPgKuy0ap7/";
+      const URL = "https://teachablemachine.withgoogle.com/models/0Gglk3YZ7/";
 
       let model, webcam, labelContainer, maxPredictions;
 
@@ -223,7 +223,7 @@
           
 
       // Convenience function to setup a webcam
-      const flip = true; // whether to flip the webcam
+      const flip = false; // whether to flip the webcam
       webcam = new tmImage.Webcam(200, 200,  flip); // width, height, flip
       // webcam = new tmImage.Webcam(300, 300, flip, facingMode: "user" }); // width, height, flip, constraints
       await webcam.setup(); // request access to the webcam
@@ -296,6 +296,16 @@ document.getElementById("video").appendChild(webcam.canvas);
         fotoContainer.appendChild(img);           
 
         setTimeout(await predict_foto(elemento),100);
+        if (elemento=="foto1") { document.getElementById("boton1").disabled = true; }
+        if (elemento=="foto2") { document.getElementById("boton2").disabled = true; }
+        if (elemento=="foto3") { document.getElementById("boton3").disabled = true; }
+        if (elemento=="foto4") { document.getElementById("boton4").disabled = true; }
+        if (elemento=="foto5") { document.getElementById("boton5").disabled = true; }
+        if (elemento=="foto6") { document.getElementById("boton6").disabled = true; }
+        if (elemento=="foto7") { document.getElementById("boton7").disabled = true; }
+ 
+
+        
 
         }
 
@@ -303,6 +313,108 @@ document.getElementById("video").appendChild(webcam.canvas);
             {
                 // predict can take in an image, video or canvas html element
                 const prediction = await model.predict(webcam.canvas);
+                let indice=0;
+                maximo=prediction[0].probability;
+                for (let i = 0; i < maxPredictions; i++) 
+                {
+                // Comparar el elemento actual con el máximo
+                if (prediction[i].probability > maximo) 
+                {
+                    // Si el elemento actual es mayor que el máximo, actualizar el máximo
+                      maximo = prediction[i].probability;
+                      indice=i;
+                 }
+                }
+                 
+                // alert(prediction[indice].className);
+
+
+                if (elemento=="foto1") 
+                { 
+                  if ( prediction[indice].className=="DISCO DURO" )
+                  {
+                    document.getElementById("boton1").style.backgroundColor = "green"; 
+                  }
+                  else
+                  {
+                    document.getElementById("boton1").style.backgroundColor = "red"; 
+                  }
+               
+                }
+
+                if (elemento=="foto2") 
+                { 
+                  if ( prediction[indice].className=="MEMORIA RAM" )
+                  {
+                    document.getElementById("boton2").style.backgroundColor = "green"; 
+                  }
+                  else
+                  {
+                    document.getElementById("boton2").style.backgroundColor = "red"; 
+                  }
+               
+                }
+
+                if (elemento=="foto3") 
+                { 
+                  if ( prediction[indice].className=="MICROPROCESADOR" )
+                  {
+                    document.getElementById("boton3").style.backgroundColor = "green"; 
+                  }
+                  else
+                  {
+                    document.getElementById("boton3").style.backgroundColor = "red"; 
+                  }
+                }
+
+                if (elemento=="foto4") 
+                { 
+                  if ( prediction[indice].className=="TARJETA GRÁFICA" )
+                  {
+                    document.getElementById("boton4").style.backgroundColor = "green"; 
+                  }
+                  else
+                  {
+                    document.getElementById("boton4").style.backgroundColor = "red"; 
+                  }
+                }
+
+                if (elemento=="foto5") 
+                { 
+                  if ( prediction[indice].className=="DISIPADOR/VENTILADOR" )
+                  {
+                    document.getElementById("boton5").style.backgroundColor = "green"; 
+                  }
+                  else
+                  {
+                    document.getElementById("boton5").style.backgroundColor = "red"; 
+                  }
+                }
+
+                if (elemento=="foto6") 
+                { 
+                  if ( prediction[indice].className=="FUENTE DE ALIMENTACIÓN" )
+                  {
+                    document.getElementById("boton6").style.backgroundColor = "green"; 
+                  }
+                  else
+                  {
+                    document.getElementById("boton6").style.backgroundColor = "red"; 
+                  }
+                }
+
+                if (elemento=="foto7") 
+                { 
+                  if ( prediction[indice].className=="PILA" )
+                  {
+                    document.getElementById("boton7").style.backgroundColor = "green"; 
+                  }
+                  else
+                  {
+                    document.getElementById("boton7").style.backgroundColor = "red"; 
+                  }
+                }
+
                 for (let i = 0; i < maxPredictions; i++) 
                 {
                     const classPrediction =prediction[i].className + ": " + prediction[i].probability.toFixed(2) + " %";   
@@ -329,6 +441,7 @@ document.getElementById("video").appendChild(webcam.canvas);
                     // Añadir el elemento de porcentaje a la barra de progreso
                     progressBarFill.style.width = porcentaje + '%';
                     progressBarFill.appendChild(porcentajeElement); 
+
                     
                     /*if (i==0)
                     {
