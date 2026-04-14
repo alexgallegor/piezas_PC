@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>RECONOCER PIEZAS PC</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+  <style>
+    :root{
+      --bg:#07090d;
+      --panel:#111623;
+      --panel-2:#171d2b;
+      --line:#2a3550;
+      --text:#eaf1ff;
+      --muted:#9db0d1;
+      --accent:#4da3ff;
+      --accent-2:#7be3ff;
+      --ok:#1fd17b;
+      --bad:#ff5f72;
+      --warn:#ffb347;
+      --shadow:0 10px 30px rgba(0,0,0,.35);
+      --radius:16px;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;overflow:hidden}
+    body{
+      font-family:Segoe UI,Arial,sans-serif;
+      background:radial-gradient(circle at top left,#18243f 0,#0b1019 32%,#07090d 100%);
+      color:var(--text);
+    }
+    .app{
+      height:100vh;
+      display:grid;
+      grid-template-rows:auto auto 1fr;
+      gap:10px;
+      padding:10px;
+    }
+    .header,.toolbar,.panel{
+      background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));
+      border:1px solid var(--line);
+      box-shadow:var(--shadow);
+      border-radius:var(--radius);
+    }
+    .header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:12px 16px;
+      min-height:64px;
+    }
+    .title-wrap h1{
+      font-size:clamp(22px,2.3vw,34px);
+      line-height:1.05;
+      letter-spacing:1px;
+    }
+    .title-wrap p{
+      color:var(--muted);
+      font-size:12px;
+      margin-top:4px;
+    }
+    .badge{
+      font-size:12px;
+      padding:7px 10px;
+      border-radius:999px;
+      background:#0c1526;
+      border:1px solid var(--line);
+      color:var(--accent-2);
+      white-space:nowrap;
+    }
+    .toolbar{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      min-height:58px;
+      flex-wrap:wrap;
+    }
+    .btn{
+      background:linear-gradient(135deg,var(--accent),#346cff);
+      color:white;
+      border:none;
+      border-radius:12px;
+      padding:10px 14px;
+      font-weight:700;
+      cursor:pointer;
+      box-shadow:0 8px 18px rgba(77,163,255,.28);
+    }
+    .btn:hover{filter:brightness(1.06)}
+    .toolbar .hint{font-size:12px;color:var(--muted)}
+    .toolbar .status{margin-left:auto;font-size:12px;color:var(--accent-2)}
+
+    .main{
+      min-height:0;
+      display:grid;
+      grid-template-columns:1.05fr 1.35fr;
+      gap:10px;
+    }
+    .left,.right{
+      min-height:0;
+      display:grid;
+      gap:10px;
+    }
+    .left{grid-template-rows:1fr auto}
+    .camera-panel{
+      display:grid;
+      grid-template-rows:auto 1fr auto;
+      min-height:0;
+      padding:10px;
+    }
+    .panel-title{
+      font-size:13px;
+      font-weight:800;
+      letter-spacing:.8px;
+      color:var(--accent-2);
+      margin-bottom:8px;
+      text-transform:uppercase;
+    }
+    .video-wrap{
+      min-height:0;
+      border-radius:14px;
+      overflow:hidden;
+      border:1px solid var(--line);
+      background:#05070c;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      position:relative;
+    }
+    .video-placeholder{
+      color:var(--muted);
+      text-align:center;
+      padding:20px;
+      font-size:14px;
+      line-height:1.5;
+    }
+    #video{display:flex;align-items:center;justify-content:center;width:100%;height:100%}
+    #video canvas{width:min(100%,500px)!important;height:auto!important;max-height:100%}
+    .summary{
+      margin-top:8px;
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:8px;
+    }
+    .mini{
+      background:var(--panel-2);
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:8px 10px;
+      min-height:58px;
+    }
+    .mini .k{font-size:11px;color:var(--muted);margin-bottom:4px}
+    .mini .v{font-size:16px;font-weight:800}
+
+    .components-panel{padding:10px;display:grid;grid-template-rows:auto 1fr;min-height:170px}
+    .component-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px;
+      overflow:auto;
+      padding-right:2px;
+    }
+    .comp-btn{
+      background:var(--panel-2);
+      color:var(--text);
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:10px 8px;
+      cursor:pointer;
+      font-size:12px;
+      font-weight:700;
+      line-height:1.2;
+      min-height:54px;
+      transition:.2s ease;
+    }
+    .comp-btn:hover{transform:translateY(-1px);border-color:var(--accent)}
+    .comp-btn-correct{background:rgba(31,209,123,.14)!important;border-color:var(--ok)!important;color:#dffff0!important}
+    .comp-btn-wrong{background:rgba(255,95,114,.14)!important;border-color:var(--bad)!important;color:#ffe6ea!important}
+
+    .right{grid-template-rows:1fr 168px}
+    .results-panel,.detail-panel{padding:10px;display:grid;grid-template-rows:auto 1fr;min-height:0}
+    .results-grid{
+      min-height:0;
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px;
+      overflow:hidden;
+      align-content:stretch;
+      grid-auto-rows:1fr;
+    }
+    .card{
+      background:var(--panel-2);
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:9px;
+      display:grid;
+      grid-template-columns:74px 1fr;
+      gap:9px;
+      min-height:0;
+    }
+    .photo{
+      width:74px;height:74px;border-radius:10px;
+      overflow:hidden;border:1px solid var(--line);
+      background:#05070c;
+      display:flex;align-items:center;justify-content:center;
+      color:#6f82a6;font-size:11px;text-align:center;padding:6px;
+    }
+    .photo img{width:100%;height:100%;object-fit:cover}
+    .meta{min-width:0}
+    .name{font-size:12px;font-weight:800;margin-bottom:5px;line-height:1.15}
+    .line{display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:5px}
+    .pill{
+      font-size:9px;font-weight:800;padding:3px 6px;border-radius:999px;border:1px solid var(--line);background:#0c1526;color:var(--muted)
+    }
+    .pill.ok{border-color:var(--ok);color:var(--ok)}
+    .pill.bad{border-color:var(--bad);color:var(--bad)}
+    .pill.info{border-color:var(--accent);color:var(--accent-2)}
+    .barbox{margin-top:4px}
+    .barlabel{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:4px}
+    .bar{height:8px;border-radius:999px;background:#0b1220;overflow:hidden;border:1px solid #21304a}
+    .fill{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .35s ease}
+    .top3{margin-top:6px;font-size:9px;color:var(--muted);line-height:1.3;max-height:36px;overflow:hidden}
+
+    .detail-body{display:grid;grid-template-rows:auto 1fr;gap:8px;min-height:0}
+    .detail-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+    .detail-target{font-size:12px;font-weight:800;color:var(--text)}
+    .detail-note{font-size:10px;color:var(--muted)}
+    .scores{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;align-content:start;overflow:hidden}
+    .score-row{display:grid;grid-template-columns:92px 1fr 36px;gap:6px;align-items:center;font-size:10px;color:var(--muted)}
+    .mini-bar{height:7px;background:#0b1220;border-radius:999px;overflow:hidden;border:1px solid #21304a}
+    .mini-fill{height:100%;width:0;background:linear-gradient(90deg,#6e89ff,#7be3ff)}
+    .detail-empty{display:flex;align-items:center;justify-content:center;height:100%;font-size:12px;color:var(--muted);border:1px dashed var(--line);border-radius:12px;background:rgba(255,255,255,.02)}
+
+    ::-webkit-scrollbar{width:8px;height:8px}
+    ::-webkit-scrollbar-thumb{background:#324465;border-radius:99px}
+    ::-webkit-scrollbar-track{background:transparent}
+
+    @media (max-width: 1080px){
+      html,body{overflow:auto}
+      .app{height:auto;min-height:100vh}
+      .main{grid-template-columns:1fr}
+      .left{grid-template-rows:auto auto}
+      .component-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .right{grid-template-rows:auto auto}
+      .results-grid{grid-template-columns:1fr}
+      .scores{grid-template-columns:1fr}
+      #video canvas{width:100%!important;max-width:420px}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="title-wrap">
+        <h1>RECONOCER PIEZAS PC</h1>
+        <p>Captura una imagen, selecciónala y comprueba si el modelo reconoce correctamente la pieza.</p>
+      </div>
+      <div class="badge">Modo compacto · una sola pantalla</div>
+    </header>
+
+    <div class="toolbar">
+      <button class="btn" onclick="iniciarCamara()">Iniciar cámara</button>
+      <div class="hint">1) Inicia cámara · 2) Enfoca la pieza · 3) Pulsa su nombre</div>
+      <div id="estadoSistema" class="status">Modelo no cargado</div>
+    </div>
+
+    <div class="main">
+      <section class="left">
+        <div class="panel camera-panel">
+          <div class="panel-title">Vista de cámara</div>
+          <div class="video-wrap">
+            <div id="video">
+              <div class="video-placeholder">La cámara aparecerá aquí.<br>Usa el botón superior para activarla.</div>
+            </div>
+          </div>
+          <div class="summary">
+            <div class="mini"><div class="k">Última detección</div><div class="v" id="ultimaDeteccion">—</div></div>
+            <div class="mini"><div class="k">Confianza</div><div class="v" id="ultimaConfianza">0%</div></div>
+            <div class="mini"><div class="k">Aciertos</div><div class="v" id="contadorAciertos">0 / 7</div></div>
+          </div>
+        </div>
+
+        <div class="panel components-panel">
+          <div class="panel-title">Piezas a comprobar</div>
+          <div id="botonesGrid" class="component-grid"></div>
+        </div>
+      </section>
+
+      <section class="right">
+        <div class="panel results-panel">
+          <div class="panel-title">Capturas y resultados</div>
+          <div id="resultsGrid" class="results-grid"></div>
+        </div>
+        <div class="panel detail-panel">
+          <div class="panel-title">Detalle del último componente</div>
+          <div class="detail-body">
+            <div class="detail-head">
+              <div class="detail-target" id="detalleTitulo">Sin componente seleccionado</div>
+              <div class="detail-note" id="detalleSubtitulo">Aquí aparecerán los porcentajes del resto de componentes.</div>
+            </div>
+            <div id="detalleGlobal" class="detail-empty">Pulsa un componente para ver aquí el detalle del resto.</div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const URL = "https://teachablemachine.withgoogle.com/models/0Gglk3YZ7/";
+
+    const componentes = [
+      { id: "HD", nombre: "DISCO DURO", categoria: "almacenamiento", palabrasClave: ["DISCO", "HDD", "SSD", "HARD", "STORAGE", "ALMACENAMIENTO", "SOLIDO", "MECANICO", "SATA", "NVME"], palabrasExclusivas: ["HDD", "SSD", "NVME", "SATA", "M2"], sinonimos: ["DISCO DURO", "HDD", "SSD", "DISCO SOLIDO", "HARD DRIVE"] },
+      { id: "RAM", nombre: "MEMORIA RAM", categoria: "memoria", palabrasClave: ["RAM", "MEMORIA", "DIMM", "DDR", "MODULO", "SLOT", "BANCO", "SODIMM"], palabrasExclusivas: ["DDR3", "DDR4", "DDR5", "DIMM", "SODIMM"], sinonimos: ["MEMORIA RAM", "RAM", "MODULO RAM", "DIMM", "DDR"] },
+      { id: "CPU", nombre: "MICROPROCESADOR", categoria: "procesador", palabrasClave: ["CPU", "PROCESADOR", "INTEL", "AMD", "CHIP", "CORE", "RYZEN", "PENTIUM", "I3", "I5", "I7", "I9"], palabrasExclusivas: ["SOCKET", "ZIF", "PGA", "LGA", "CORE"], sinonimos: ["MICROPROCESADOR", "CPU", "PROCESADOR", "CHIP", "INTEL", "AMD"] },
+      { id: "GRAFICA", nombre: "TARJETA GRAFICA", categoria: "video", palabrasClave: ["GRAFICA", "GPU", "NVIDIA", "GTX", "RTX", "RADEON", "VIDEO", "HDMI", "DISPLAYPORT", "DVI", "VGA", "PCI", "GRAPHICS"], palabrasExclusivas: ["HDMI", "DISPLAYPORT", "DVI", "GTX", "RTX", "RADEON", "QUADRO"], sinonimos: ["TARJETA GRAFICA", "GPU", "VIDEO CARD", "GRAPHICS CARD", "NVIDIA", "AMD RADEON"] },
+      { id: "VENTILADOR", nombre: "VENTILADOR", categoria: "enfriamiento", palabrasClave: ["VENTILADOR", "FAN", "COOLER", "ABANICO", "ASPAS", "RPM", "SOPLADOR", "AIRE", "HEATSINK", "HEAT SINK", "DISIPADOR"], palabrasExclusivas: ["RPM", "CFM", "PWM", "ASPAS", "HEATSINK"], sinonimos: ["VENTILADOR", "FAN", "COOLER", "DISIPADOR", "HEATSINK"] },
+      { id: "FUENTE", nombre: "FUENTE DE ALIMENTACION", categoria: "energia", palabrasClave: ["FUENTE", "POWER", "SUPPLY", "PSU", "ATX", "WATT", "VOLT", "CABLE", "CONECTOR", "ENERGIA", "ALIMENTACION", "PODER"], palabrasExclusivas: ["WATT", "VOLTAJE", "ATX", "MODULAR", "80 PLUS"], sinonimos: ["FUENTE DE ALIMENTACION", "POWER SUPPLY", "PSU", "FUENTE PODER", "ATX"] },
+      { id: "PILA", nombre: "PILA", categoria: "bateria", palabrasClave: ["PILA", "BATERIA", "CMOS", "BATTERY", "CR2032", "LITIO", "BOTON", "CELDA"], palabrasExclusivas: ["CR2032", "CR2025", "LITIO", "CMOS"], sinonimos: ["PILA", "BATERIA", "CMOS", "BATTERY", "CR2032"] }
+    ];
+
+    let model = null;
+    let webcam = null;
+    let maxPredictions = 0;
+    let modeloCargado = false;
+    const estadoResultados = {};
+    let ultimoDetalle = null;
+
+    function normalizarTexto(texto) {
+      if (!texto) return "";
+      const mapa = { 'Á':'A','É':'E','Í':'I','Ó':'O','Ú':'U','Ü':'U','á':'A','é':'E','í':'I','ó':'O','ú':'U','ü':'U','Ñ':'N','ñ':'N','/':' ','-':' ','_':' ','\.':' ',',':' ' };
+      let resultado = texto.toUpperCase();
+      for (let [key, value] of Object.entries(mapa)) {
+        resultado = resultado.split(key).join(value);
+      }
+      return resultado.replace(/\s+/g, ' ').trim();
+    }
+
+    function reconocimientoAvanzado(predicciones) {
+      const todasLasPredicciones = predicciones.map(p => normalizarTexto(p.className));
+      const todasLasProbabilidades = predicciones.map(p => p.probability);
+      let puntuaciones = Object.fromEntries(componentes.map(c => [c.nombre, 0]));
+
+      for (let i = 0; i < todasLasPredicciones.length; i++) {
+        const texto = todasLasPredicciones[i];
+        const prob = todasLasProbabilidades[i];
+        for (let comp of componentes) {
+          for (let sinonimo of comp.sinonimos) {
+            if (texto === normalizarTexto(sinonimo)) {
+              puntuaciones[comp.nombre] += prob * 10;
+              break;
+            }
+          }
+          for (let palabra of comp.palabrasClave) {
+            if (texto.includes(palabra)) {
+              puntuaciones[comp.nombre] += prob * 3;
+              break;
+            }
+          }
+          for (let exclusiva of comp.palabrasExclusivas) {
+            if (texto.includes(exclusiva)) {
+              puntuaciones[comp.nombre] += prob * 5;
+              break;
+            }
+          }
+        }
+      }
+
+      let mejorComponente = null;
+      let mejorPuntuacion = -1;
+      for (const [componente, puntuacion] of Object.entries(puntuaciones)) {
+        if (puntuacion > mejorPuntuacion) {
+          mejorPuntuacion = puntuacion;
+          mejorComponente = componente;
+        }
+      }
+
+      const confianza = Math.min((mejorPuntuacion / 8) * 100, 100);
+      return { componente: mejorComponente, confianza, puntuaciones };
+    }
+
+    function verificarComponente(componenteDetectado, componenteEsperado) {
+      const detectadoNorm = normalizarTexto(componenteDetectado);
+      const esperadoNorm = normalizarTexto(componenteEsperado);
+      if (detectadoNorm === esperadoNorm) return { correcto: true, precision: 100, razon: 'Coincidencia exacta' };
+
+      const compData = componentes.find(c => normalizarTexto(c.nombre) === esperadoNorm);
+      if (compData) {
+        for (let sinonimo of compData.sinonimos) {
+          if (detectadoNorm === normalizarTexto(sinonimo)) return { correcto: true, precision: 100, razon: `Sinónimo: ${sinonimo}` };
+        }
+        for (let palabra of compData.palabrasClave) {
+          if (detectadoNorm.includes(palabra)) return { correcto: true, precision: 95, razon: `Palabra clave: ${palabra}` };
+        }
+        for (let exclusiva of compData.palabrasExclusivas) {
+          if (detectadoNorm.includes(exclusiva)) return { correcto: true, precision: 98, razon: `Término exclusivo: ${exclusiva}` };
+        }
+      }
+      return { correcto: false, precision: 0, razon: `Detectado: ${componenteDetectado || 'Sin detectar'}` };
+    }
+
+    function generarInterfaz() {
+      const botonesGrid = document.getElementById('botonesGrid');
+      const resultsGrid = document.getElementById('resultsGrid');
+      botonesGrid.innerHTML = '';
+      resultsGrid.innerHTML = '';
+
+      componentes.forEach((comp, index) => {
+        const num = index + 1;
+        const boton = document.createElement('button');
+        boton.className = 'comp-btn';
+        boton.id = `boton${num}`;
+        boton.textContent = comp.nombre;
+        boton.onclick = () => hacerFoto(`foto${num}`);
+        botonesGrid.appendChild(boton);
+
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.id = `card_${num}`;
+        card.innerHTML = `
+          <div class="photo" id="foto${num}">Sin captura</div>
+          <div class="meta">
+            <div class="name">${comp.nombre}</div>
+            <div class="line">
+              <span class="pill info" id="det_${num}">Pendiente</span>
+              <span class="pill" id="conf_${num}">0%</span>
+              <span class="pill" id="estado_${num}">Sin evaluar</span>
+            </div>
+            <div class="barbox">
+              <div class="barlabel"><span>% del componente evaluado</span><span id="principal_${num}">0%</span></div>
+              <div class="bar"><div class="fill" id="fill_${num}"></div></div>
+            </div>
+            <div class="top3" id="top3_${num}">Aún no hay resultados.</div>
+          </div>`;
+        resultsGrid.appendChild(card);
+      });
+      actualizarResumen();
+    }
+
+    async function cargarModelo() {
+      if (modeloCargado) return true;
+      try {
+        document.getElementById('estadoSistema').textContent = 'Cargando modelo…';
+        const modelURL = URL + 'model.json';
+        const metadataURL = URL + 'metadata.json';
+        model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
+        modeloCargado = true;
+        document.getElementById('estadoSistema').textContent = 'Modelo cargado';
+        return true;
+      } catch (error) {
+        console.error('Error cargando modelo:', error);
+        document.getElementById('estadoSistema').textContent = 'Error al cargar el modelo';
+        return false;
+      }
+    }
+
+    async function iniciarCamara() {
+      try {
+        document.getElementById('estadoSistema').textContent = 'Iniciando cámara…';
+        const flip = false;
+        webcam = new tmImage.Webcam(320, 320, flip);
+        await webcam.setup();
+        await webcam.play();
+        window.requestAnimationFrame(loop);
+        const videoDiv = document.getElementById('video');
+        videoDiv.innerHTML = '';
+        videoDiv.appendChild(webcam.canvas);
+        const ok = await cargarModelo();
+        document.getElementById('estadoSistema').textContent = ok ? 'Cámara activa · modelo listo' : 'Cámara activa · modelo no disponible';
+      } catch (error) {
+        console.error('Error iniciando cámara:', error);
+        document.getElementById('estadoSistema').textContent = 'No se pudo iniciar la cámara';
+        alert('Error al iniciar la cámara. Comprueba los permisos del navegador.');
+      }
+    }
+
+    async function loop() {
+      if (webcam) webcam.update();
+      window.requestAnimationFrame(loop);
+    }
+
+    async function hacerFoto(elementoId) {
+      if (!webcam) {
+        alert('Primero inicia la cámara.');
+        return;
+      }
+      const modeloListo = await cargarModelo();
+      if (!modeloListo) {
+        alert('No se pudo cargar el modelo.');
+        return;
+      }
+
+      const numero = elementoId.replace('foto', '');
+      const boton = document.getElementById(`boton${numero}`);
+      boton.style.opacity = '0.65';
+
+      try {
+        const img = new Image();
+        img.src = webcam.canvas.toDataURL('image/png');
+        const fotoContainer = document.getElementById(elementoId);
+        fotoContainer.innerHTML = '';
+        fotoContainer.appendChild(img);
+        await predecirFoto(elementoId);
+      } catch (error) {
+        console.error('Error capturando foto:', error);
+      } finally {
+        boton.style.opacity = '1';
+      }
+    }
+
+    function porcentajeDesdePuntuacion(valor) {
+      return Math.max(0, Math.min(100, Math.round((valor / 8) * 100)));
+    }
+
+    function topResultados(puntuaciones, esperado) {
+      return Object.entries(puntuaciones)
+        .sort((a,b) => b[1]-a[1])
+        .slice(0,3)
+        .map(([nombre, valor]) => `${nombre}: ${porcentajeDesdePuntuacion(valor)}%${nombre === esperado ? ' ← evaluado' : ''}`)
+        .join(' · ');
+    }
+
+    function renderDetalleGlobal(puntuaciones, esperado) {
+      const cont = document.getElementById('detalleGlobal');
+      const titulo = document.getElementById('detalleTitulo');
+      const subtitulo = document.getElementById('detalleSubtitulo');
+      titulo.textContent = esperado;
+      subtitulo.textContent = 'Porcentajes del resto de componentes en la última captura realizada.';
+      const filas = Object.entries(puntuaciones)
+        .filter(([nombre]) => nombre !== esperado)
+        .sort((a,b) => b[1]-a[1])
+        .map(([nombre, valor]) => {
+          const pct = porcentajeDesdePuntuacion(valor);
+          return `
+            <div class="score-row">
+              <span>${nombre}</span>
+              <div class="mini-bar"><div class="mini-fill" style="width:${pct}%"></div></div>
+              <span>${pct}%</span>
+            </div>`;
+        }).join('');
+      cont.className = 'scores';
+      cont.innerHTML = filas || '<div class="detail-empty">No hay más componentes para mostrar.</div>';
+      ultimoDetalle = esperado;
+    }
+
+    function actualizarResumen() {
+      const evaluados = Object.values(estadoResultados);
+      const aciertos = evaluados.filter(x => x.correcto).length;
+      document.getElementById('contadorAciertos').textContent = `${aciertos} / ${componentes.length}`;
+    }
+
+    async function predecirFoto(elementoId) {
+      if (!model || !webcam) return;
+      try {
+        const prediccionesMultiples = [];
+        for (let intento = 0; intento < 3; intento++) {
+          const pred = await model.predict(webcam.canvas);
+          prediccionesMultiples.push(pred);
+          await new Promise(r => setTimeout(r, 80));
+        }
+
+        const prediccionPromediada = [];
+        for (let i = 0; i < maxPredictions; i++) {
+          let sumaProb = 0;
+          for (let j = 0; j < prediccionesMultiples.length; j++) sumaProb += prediccionesMultiples[j][i].probability;
+          prediccionPromediada.push({
+            className: prediccionesMultiples[0][i].className,
+            probability: sumaProb / prediccionesMultiples.length
+          });
+        }
+
+        const numeroFoto = parseInt(elementoId.replace('foto', ''), 10);
+        const componenteEsperado = componentes[numeroFoto - 1].nombre;
+        const reconocimiento = reconocimientoAvanzado(prediccionPromediada);
+        const verificacion = verificarComponente(reconocimiento.componente, componenteEsperado);
+
+        const boton = document.getElementById(`boton${numeroFoto}`);
+        boton.classList.remove('comp-btn-correct', 'comp-btn-wrong');
+        boton.classList.add(verificacion.correcto ? 'comp-btn-correct' : 'comp-btn-wrong');
+
+        const det = document.getElementById(`det_${numeroFoto}`);
+        const conf = document.getElementById(`conf_${numeroFoto}`);
+        const estado = document.getElementById(`estado_${numeroFoto}`);
+        const principal = document.getElementById(`principal_${numeroFoto}`);
+        const fill = document.getElementById(`fill_${numeroFoto}`);
+        const top3 = document.getElementById(`top3_${numeroFoto}`);
+
+        const confianza = Math.round(reconocimiento.confianza);
+        const pctEsperado = porcentajeDesdePuntuacion(reconocimiento.puntuaciones[componenteEsperado] || 0);
+
+        det.textContent = `Detectado: ${reconocimiento.componente || 'Sin detectar'}`;
+        conf.textContent = `Evaluado: ${pctEsperado}%`;
+        estado.textContent = verificacion.correcto ? 'Correcto' : 'Incorrecto';
+        estado.className = `pill ${verificacion.correcto ? 'ok' : 'bad'}`;
+        principal.textContent = `${pctEsperado}%`;
+        fill.style.width = `${pctEsperado}%`;
+        top3.textContent = `${verificacion.razon} · ${componenteEsperado}: ${pctEsperado}% · Top: ${topResultados(reconocimiento.puntuaciones, componenteEsperado)}`;
+        renderDetalleGlobal(reconocimiento.puntuaciones, componenteEsperado);
+
+        document.getElementById('ultimaDeteccion').textContent = (reconocimiento.componente || '—').slice(0,18);
+        document.getElementById('ultimaConfianza').textContent = `${pctEsperado}%`;
+
+        estadoResultados[numeroFoto] = { correcto: verificacion.correcto, confianza: pctEsperado };
+        actualizarResumen();
+      } catch (error) {
+        console.error('Error en predicción:', error);
+      }
+    }
+
+    generarInterfaz();
+  </script>
+</body>
+</html>
